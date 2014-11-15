@@ -16,14 +16,14 @@ ods listing;
 %let DSEP= \; 	
 
 *** RAW DATA DIR; 
-%let RAW_DIR= C:\Public\MedicareData\raw; 
+%let RAW_DIR= ; 
 
 *** PERMANENT NETWORKED STORAGE; 
-%let NET_DIR= C:\Public\MedicareData\sas; 
+%let NET_DIR= ; 
 libname net "&NET_DIR"; 
 
 *** OUTPUT DIRECTORY; 
-%let OUT_DIR= C:\Public\MedicareData\out; 
+%let OUT_DIR= ; 
 
 **** GRAPHICS OPTIONS; 
 ods listing gpath= "&OUT_DIR";  
@@ -122,13 +122,13 @@ ods listing gpath= "&OUT_DIR";
 
 	*** FUNCTION TO CONDITIONALLY IMPORT SUMMARY BY PROCEDURE AND STATE ******;
 	%macro get_summary_by_proc_st_prov(DS, 
-									   FILENAME, 
-									   MAX_PROC_REC_LENGTH,
-									   MAX_PROV_NAME_REC_LENGTH,
-									   MAX_PROV_ADDRESS_REC_LENGTH,
-									   MAX_PROV_CITY_REC_LENGTH,
-									   MAX_PROV_REF_REGION_REC_LENGTH
-									  );
+					   FILENAME, 
+					   MAX_PROC_REC_LENGTH,
+					   MAX_PROV_NAME_REC_LENGTH,
+					   MAX_PROV_ADDRESS_REC_LENGTH,
+					   MAX_PROV_CITY_REC_LENGTH,
+					   MAX_PROV_REF_REGION_REC_LENGTH
+					  );
 
 		*** IF SET IS NOT IN SAS FORMAT, IMPORT IT; 
 		%if ^%sysfunc(exist(net.&DS)) %then %do;
@@ -143,10 +143,10 @@ ods listing gpath= "&OUT_DIR";
 				informat state $ 2.; 
 				informat zip best32.; 
 				informat ref_region $ &MAX_PROV_REF_REGION_REC_LENGTH..;
-		        informat num_service best32.;
-		        informat ave_provider_charge best32.;
-		        informat ave_medicare_payment best32.;
-	        	format procedure_code $&MAX_PROC_REC_LENGTH..;
+				informat num_service best32.;
+				informat ave_provider_charge best32.;
+				informat ave_medicare_payment best32.;
+				format procedure_code $&MAX_PROC_REC_LENGTH..;
 				format provider_id best12.;
 				format name $ &MAX_PROV_NAME_REC_LENGTH..; 
 				format address $ &MAX_PROV_ADDRESS_REC_LENGTH..; 
@@ -273,7 +273,7 @@ ods listing gpath= "&OUT_DIR";
 		data net.&DS; ; 						
 			infile "&ASCII_FILE" recfm= f lrecl= 1 end= eof; 
 			length accum $32 date $8 id 8 procedure_code $6; /* XML LIBNAME IS TREATING ID AS A NUMERIC, BE CAREFUL OF PREPADDED ZEROS */
-			retain accum ' ';								 /* DOING THE SAME HERE FOR LATER MERGING */
+			retain accum ' ';				 /* DOING THE SAME HERE FOR LATER MERGING */
 			retain cut 0;  
 			input x $char1.;  
 			delim= x in ('1f'x,'1e'x);  
@@ -639,18 +639,18 @@ run;
 proc sql noprint; 
 	create table provider_summary as
 	select unique provider_id,
-		   name,
-		   mean(ave_provider_charge) as AVE_ave_provider_charge,
-		   mean(ave_medicare_payment) as AVE_ave_medicare_payment,
-		   mean(num_service) as AVE_num_service,
-		   mean(level) as AVE_level,
-		   sum(level0) as SUM_level0,
-		   sum(level1) as SUM_level1,
-		   sum(level2) as SUM_level2,
-		   sum(level4) as SUM_level4, /* LEVELS 3 AND 4 HIGHLY CORRELATED */
-		   sum(level5) as SUM_level5,
-		   sum(level7) as SUM_level7, /* LEVELS 6 AND 7 HIGHLY CORRELATED */
-		   max(university_flag) as MAX_university_flag 
+	       name,
+	       mean(ave_provider_charge) as AVE_ave_provider_charge,
+	       mean(ave_medicare_payment) as AVE_ave_medicare_payment,
+	       mean(num_service) as AVE_num_service,
+	       mean(level) as AVE_level,
+	       sum(level0) as SUM_level0,
+	       sum(level1) as SUM_level1,
+	       sum(level2) as SUM_level2,
+	       sum(level4) as SUM_level4, /* LEVELS 3 AND 4 HIGHLY CORRELATED */
+               sum(level5) as SUM_level5,
+	       sum(level7) as SUM_level7, /* LEVELS 6 AND 7 HIGHLY CORRELATED */
+	       max(university_flag) as MAX_university_flag 
 	from summary
 	group by provider_id;
 quit; 
@@ -721,7 +721,7 @@ quit;
 *** UNSUPERVISED LEARNING APPROACH; 
 *** IMPORT FUNCTION TO ESTIMATE THE BEST NUMBER OF CLUSTERS; 
 *** BY ALIGNED BOX CRITERION; 
-filename ABC '\\sashq\root\u\pathal\rapidSegmentation\rapidSegmentationSASCode\ABC.sas'; 
+filename ABC ''; 
 %include ABC /source2; 
 filename ABC; 
 
@@ -790,9 +790,9 @@ filename ABC;
 
 		*** TRAIN DENOISING AUTOENCODER; 
 		proc neural
-	    	data= outc
-	      	dmdbcat= work.cat_outc_dmdb;
-	  		performance compile details cpucount= 4 threads=yes;
+	    		data= outc
+	    		dmdbcat= work.cat_outc_dmdb;
+	    		performance compile details cpucount= 4 threads=yes;
 
 			nloptions fconv= 0.00001;
 			netoptions decay= 1.0; /* DENOISING */
@@ -800,12 +800,12 @@ filename ABC;
 	  		archi MLP hidden= 5;
 			hidden &NUM_INPUTS / id= h1; 
 			hidden %eval(&NUM_INPUTS/2) / id= h2; 
-	      	hidden 2 / id= h3 act= linear;
+			hidden 2 / id= h3 act= linear;
 			hidden %eval(&NUM_INPUTS/2) / id= h4;
 			hidden &NUM_INPUTS / id= h5; 
 
-	      	input %INPUTS / std= no id= i level= int;
-	      	target %INPUTS / std= no id= t level= int;
+			input %INPUTS / std= no id= i level= int;
+			target %INPUTS / std= no id= t level= int;
 
 	  		initial random= 123; 
 			prelim 20 preiter= 20; 
@@ -815,11 +815,11 @@ filename ABC;
 			freeze h2->h3; 
 			freeze h3->h4; 
 			freeze h4->h5; 
-		    train maxtime= 10000 maxiter= 5000;
+			train maxtime= 10000 maxiter= 5000;
 
 			freeze i->h1; 
 			thaw h1->h2; 
-		    train maxtime= 10000 maxiter= 2000;
+			train maxtime= 10000 maxiter= 2000;
 		 
 			freeze h1->h2; 
 			thaw h2->h3; 
@@ -838,10 +838,10 @@ filename ABC;
 			thaw h1->h2; 
 			thaw h2->h3; 
 			thaw h3->h4;
-		    train maxtime= 10000 maxiter= 2000;
+			train maxtime= 10000 maxiter= 2000;
 
 			%let NEURAL_SCORE_CODE= %sysfunc(pathname(WORK))\neuralscore%sysfunc(compress(%sysfunc(datetime(), datetime23.),:)).sas; 
-	      	code file= "&NEURAL_SCORE_CODE";
+			code file= "&NEURAL_SCORE_CODE";
 		run; 
 		data outc_2dscore; 
 			set outc; 
@@ -1010,7 +1010,7 @@ run;
 			
 			infile "&ASCII_FILE" recfm= f lrecl= 1 end= eof; 
 			length accum $32 id 8;  /* XML LIBNAME IS TREATING ID AS A NUMERIC, BE CAREFUL OF PREPADDED ZEROS */
-			retain accum ' ';	    /* DOING THE SAME HERE FOR LATER MERGING */ 
+			retain accum ' ';	/* DOING THE SAME HERE FOR LATER MERGING */ 
 			input x $char1.;  
 
 			delim= x in ('0a'x);  
@@ -1199,22 +1199,22 @@ proc sort data= transaction_coo sortsize= MAX threads; by id global_proc_id; run
 *** THIS WILL REQUIRE DISTRIBUTED PROCESSING;
 *** PUSH DATA TO DISTRIBUTED ENVIRONMENT;  
 libname gridlib teradata
-	server= 'tera2650' 
-	user= pathal
-	password= pathal
+	server= '' 
+	user= 
+	password= 
 	database= hps;
-option set= GRIDHOST= 'tms2650.unx.sas.com';
-option set= GRIDATASERVER= 'tera2650';
-option set= GRIDINSTALLLOC= '/opt/v940m2/laxno/TKGrid';
+option set= GRIDHOST= '';
+option set= GRIDATASERVER= '';
+option set= GRIDINSTALLLOC= '';
 option set= GRIDMODE= 'sym';
 data gridlib.ccp_transaction_coo (bulkload= yes 
-                    			  dbcommit= 10000000 
-                    		      dbcreate_table_opts= 'PRIMARY INDEX (id)'); 
+                    		  dbcommit= 10000000 
+                    		  dbcreate_table_opts= 'PRIMARY INDEX (id)'); 
     set transaction_coo;
 run;
 
 *** CREATE SVDS USING DISTRIBUTED PROCEDURE; 
-%let GRID_TEXTANALYTICS_BIN_LOC=/rdstore/tktg/misc; 
+%let GRID_TEXTANALYTICS_BIN_LOC=; 
 proc hptmine 
 	data= gridlib.ccp_transaction_coo; 
 	svd 
@@ -1246,8 +1246,8 @@ run;
 *** THIS WILL REQUIRE DISTRIBUTED PROCESSING; 
 *** PUSH DATA TO DISTRIBUTED ENVIRONMENT; 
 data gridlib.ccp_patient_history_std (bulkload= yes 
-                    			      dbcommit= 10000000 
-                    		          dbcreate_table_opts= 'PRIMARY INDEX (id)'); 
+                    	              dbcommit= 10000000 
+                    		      dbcreate_table_opts= 'PRIMARY INDEX (id)'); 
     set patient_history_std;
 run;
 
@@ -1275,8 +1275,8 @@ proc hpclus
 		COL8
 		COL9
 		COL10; 
-	id         /* COPY THESE TO THE OUTPUT SET */
-		id
+	        /* COPY THESE TO THE OUTPUT SET */
+	id
 		REVIEW_FLAG
 		FRAUD_RANK
 		GENDER
@@ -1303,14 +1303,14 @@ proc freq data= patient_cluster_label1000(keep= REVIEW_FLAG _CLUSTER_ID_) noprin
 run; 
 data review_flag_freq0; 
 	set review_flag_freq (where= (REVIEW_FLAG= 0)
-						  rename= (count= count0)
-						  keep= _CLUSTER_ID_ count REVIEW_FLAG);
+			      rename= (count= count0)
+			      keep= _CLUSTER_ID_ count REVIEW_FLAG);
 	drop REVIEW_FLAG; 
 run;  
 data review_flag_freq1; 
 	set review_flag_freq (where= (REVIEW_FLAG= 1)
-						  rename= (count= count1)
-						  keep= _CLUSTER_ID_ count REVIEW_FLAG);
+			      rename= (count= count1)
+			      keep= _CLUSTER_ID_ count REVIEW_FLAG);
 	drop REVIEW_FLAG; 
 run;  
 
@@ -1484,7 +1484,7 @@ proc sort sortsize= MAX threads; by id; run;
  
 data patient_history_std; 
 	merge patient_history_std 
-		  patient_history_assoc_review; 
+	      patient_history_assoc_review; 
 	by id; 
 	FRAUD_RANK= CLUSTER_REVIEW_SCORE + ASSOC_REVIEW_SCORE; 
 run; 
